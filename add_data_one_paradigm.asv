@@ -1,0 +1,130 @@
+function [results] = add_data_one_paradigm(data, data_avg, cond_names, paradigm, sub_inds,...
+    p3_t_min, p3_t_max, van_t_min, van_t_max, p3_channel_vec, van_channel_vec, noise_cond, noticers, masking_subtracted_data)
+
+% init structures
+p300 = [];
+van = [];
+IB_between_p300 = [];
+IB_between_VAN = [];
+noise_p300 = [];
+noise_van = [];
+noise_p300_for_lmm = [];
+noise_van_for_lmm = [];
+
+for ind = 1:length(cond_names)
+    for sub = sub_inds
+        if strcmp(paradigm, 'IB')
+            if ~strcmp(cond_names{ind}(4), 'n') && strcmp(cond_names{ind}(2), '1')
+                IB_between_p300(end+1).sub_num = data_avg.(cond_names{ind})(sub).sub_num;
+                IB_between_p300(end).stim_type = cond_names{ind}(4);
+                IB_between_p300(end).voltage = mean(data_avg.(cond_names{ind})(sub).EEG.avg(p3_channel_vec,p3_t_min:p3_t_max),'all');
+                
+                IB_between_VAN(end+1).sub_num = data_avg.(cond_names{ind})(sub).sub_num;
+                IB_between_VAN(end).stim_type = cond_names{ind}(4);
+                IB_between_VAN(end).voltage = mean(data_avg.(cond_names{ind})(sub).EEG.avg(van_channel_vec,van_t_min:van_t_max),'all');
+            end
+            existing_subs = [data_avg.P1_f.sub_num];
+            if any(noticers == existing_subs(sub))
+                IB_between_p300(end).p1_visibility = 'noticed';
+                IB_between_VAN(end).p1_visibility = 'noticed';
+                continue % don't include noticers in the summary structure
+            else
+                IB_between_p300(end).p1_visibility = 'ib';
+                IB_between_VAN(end).p1_visibility = 'ib';
+            end
+        end
+        
+        % mean voltave for each trial
+        num_trials = length(data.(cond_names{ind})(sub).EEG.trial);
+        voltage_p300 = zeros(num_trials,1);
+        voltage_van = zeros(num_trials,1);
+        for trial = 1:num_trials
+            if strcmp(paradigm, 'masking')
+                current_trial = masking_subtracted_data(sub).(cond_names{ind}).trial{trial};
+            else
+                current_trial = data.(cond_names{ind})(sub).EEG.trial{trial};
+            end
+            voltage_p300(trial) = mean(current_trial(p3_channel_vec,p3_t_min:p3_t_max), 'all');
+            voltage_van(trial) = mean(current_trial(van_channel_vec,van_t_min:van_t_max), 'all');
+        end
+
+        if length(van_channel_vec) < 13 % masking post hoc analysis
+            voltage_van  = mean(voltage_van);
+        end
+   
+        % visibility
+        switch cond_names{ind}(1)
+            case 'V'
+                visibility = 'visible';
+            case 'I'
+                visibility = 'invisible';
+            case 'P'
+                switch cond_names{ind}(2)
+                    case '2'
+                        visibility = 'visible';
+                    case '1'
+                        visibility = 'invisible';
+                end
+        end
+        
+        % stimulus type
+        stim_type = cond_names{ind}(end);
+        
+        % Subject number
+        sub_num = ['sub', num2str(data_avg.(cond_names{ind})(sub).sub_num)];
+        
+        % add current condition of current subject to the summary structure
+        p300 = [p300; struct('paradigm', paradigm, 'visibility', visibility,...
+            'stim_type', stim_type, 'voltage', num2cell(voltage_p300), 'sub_num', sub_num)];
+        van = [van; struct('paradigm', paradigm, 'visibility', visibility,...
+            'stim_type', stim_type, 'voltage', num2cell(voltage_van), 'sub_num', sub_num)];
+    end
+end
+
+if strcmp(paradigm, 'IB')
+    existing_subs = [data_avg.P1_f.sub_num];
+    for ind = 1:length(noise_cond)
+        noise_ind = 1;
+        for sub = sub_inds
+            if any(noticers == existing_subs(sub))
+                continue
+            end
+            curr_phase = noise_cond{ind}(2);
+            noise_p300(noise_ind).sub_num = data_avg.(noise_cond{ind})(sub).sub_num;
+            noise_p300(noise_ind).(['phase_', noise_cond{ind}(2)]) = mean(data_avg.(noise_cond{ind})(sub).EEG.avg(p3_channel_vec,p3_t_min:p3_t_max),'all');
+            
+            noise_van(noise_ind).sub_num = data_avg.(noise_cond{ind})(sub).sub_num;
+            noise_van(noise_ind).(['phase_', noise_cond{ind}(2)]) = mean(data_avg.(noise_cond{ind})(sub).EEG.avg(van_channel_vec,van_t_min:van_t_max),'all');
+            noise_ind = noise_ind + 1;
+
+            num_trials = length(data.(noise_cond{ind})(sub).EEG.trial);
+            voltage_p300 = zeros(num_trials,1);
+            voltage_van = zeros(num_trials,1);
+            for trial = 1:num_trials
+                if strcmp(paradigm, 'masking')
+                    current_trial = masking_subtracted_data(sub).(cond_names{ind}).trial{trial};
+                else
+                    current_trial = data.(cond_names{ind})(sub).EEG.trial{trial};
+                end
+                voltage_p300(trial) = mean(current_trial(p3_channel_vec,p3_t_min:p3_t_max), 'all');
+                voltage_van(trial) = mean(current_trial(van_channel_vec,van_t_min:van_t_max), 'all');
+            end
+            noise_p300_for_lmm = [noise_p300_for_lmm; struct('paradigm', paradigm, 'visibility', visibility,...
+                'stim_type', stim_type, 'voltage', num2cell(voltage_p300), 'sub_num', sub_num)];
+            van = [van; struct('paradigm', paradigm, 'visibility', visibility,...
+                'stim_type', stim_type, 'voltage', num2cell(voltage_van), 'sub_num', sub_num)];
+        end
+    end
+end
+
+results.p300 = p300;
+results.van = van;
+results.IB_between_p300 = IB_between_p300;
+results.IB_between_VAN = IB_between_VAN;
+results.noise_p300 = noise_p300;
+results.noise_van = noise_van;
+results.noise_p300_for_lmm = noise_p300_for_lmm;
+results.noise_van_for_lmm = noise_van_for_lmm;
+
+end
+
