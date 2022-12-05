@@ -1,6 +1,7 @@
-function [params] = init_params(load_masking, load_IB, load_DCF, debug)
+function [params] = init_params(load_masking, load_IB, load_DCF, debug, save_to_csv)
 
 params.debug = debug;
+params.save_to_csv = save_to_csv;
 
 paradigm_names = {'Masking', 'Inattentional_Blindness', 'color_fusion'};
 params.paradigm_names = paradigm_names([load_masking, load_IB, load_DCF]);

@@ -47,6 +47,24 @@ for name = params.paradigm_names
             cfg = [];
             data_avg.(name{:}).(cond_names{ind})(idx).EEG = ft_timelockanalysis(cfg, data_seg);
             data_avg.(name{:}).(cond_names{ind})(idx).sub_num = sub_num;
+
+            if params.save_to_csv
+                % save data to csv
+                cfg = [];
+                cfg.toilim = [-0.2, 0.8];
+                data_seg = ft_redefinetrial(cfg, data_seg); % first, use only timewindow of interest
+
+                cfg = [];
+                cfg.resamplefs = 200;
+                data_seg = ft_resampledata(cfg, data_seg); % second, resample the data
+
+                all_trials = cell2mat(data_seg.trial);
+                num_trials = 1:length(data_seg.trial);
+                num_trials_vec = repelem(num_trials, length(data_seg.time{1, 1}));
+                all_trials_with_nums = [num_trials_vec; all_trials];
+                file_name = sprintf('data_in_csv%c%s_%s_sub_%d.csv', filesep,name{:},cond_names{ind},sub_num);
+                writematrix(all_trials_with_nums,file_name);
+            end
             
             if params.debug && idx == 2
                 break

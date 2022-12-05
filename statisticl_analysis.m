@@ -24,11 +24,12 @@ load_masking = true;
 load_IB = true;
 load_DCF = true;
 debug = false;
+save_to_csv = true;
 skip_permutation = true;
 data_loaded = false;
 run_masking_posthoc = false;
 
-[params] = init_params(load_masking, load_IB, load_DCF, debug);
+[params] = init_params(load_masking, load_IB, load_DCF, debug, save_to_csv);
 
 %% Load data
 if ~data_loaded
